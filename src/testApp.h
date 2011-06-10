@@ -36,8 +36,9 @@ class testApp : public ofBaseApp {
         void newTouch(int & n);
         void removedTouch(int & r);
         
+    ofPoint getDepthAsOfPoint(float _x, float _y, float zDepth);
         
-        
+    
         vector<MTouch> touches;
         vector<ofPoint> pois;
 
@@ -50,8 +51,9 @@ class testApp : public ofBaseApp {
 		int		angle;
         int     pMouseX, pMouseY;
     
-		int 	pointCloudRotationY;
+		int 	pointCloudRotationY, pointCloudRotationX;
         bool    calibrate;
         bool    showReport;
         bool    povLock;
+    ofColor HSVToRGB(float H, float S, float V, ofColor &in);
 };

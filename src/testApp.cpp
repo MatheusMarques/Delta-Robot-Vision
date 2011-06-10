@@ -22,9 +22,9 @@ void testApp::setup() {
 	
 	pointCloudRotationY = 180;
 	
-	drawPC = true;
+	drawPC = FALSE;
     calibrate = false;
-    povLock = false;
+    povLock = true;
 
     
     ofAddListener(pad.update, this, &testApp::padUpdates);
@@ -67,29 +67,56 @@ void testApp::update() {
 }
 
 void testApp::draw() {
-	ofSetColor(255, 255, 255);
-    
-    kinect.draw(0, 0, ofGetWidth(), ofGetHeight());
+    if(!drawPC){
+        kinect.draw(0, 0, ofGetWidth(), ofGetHeight());
+        stringstream reportStream;
+        ofSetColor(0,0,0);
 
-    
+//        ofSetColor(255, 255, 255);
+        reportStream << "Depth Select Mode" << endl;
+        if(pois.size() > 0){
+            int last = pois.size()-1;
+            reportStream << "Last point added had values:  X:" << ofToString(pois[last].x)
+            << " Y: " << ofToString(pois[last].y) 
+            << " Z: " << ofToString(pois[last].z);
+        } else { reportStream << "Click mouse to get point data." ; }
+        
+        ofSetColor(255, 255 ,255);
+        ofRect(0, 0, ofGetWidth(), 40);
+        ofSetColor(0,0,0);
+        ofDrawBitmapString(reportStream.str(),20,20);
+        ofSetColor(255, 255, 255);
+
+    }
     
 	if(drawPC){
+        ofSetColor(0, 0, 0);
+        ofRect(0,0, ofGetWidth(), ofGetHeight());
 		ofPushMatrix();
 		ofTranslate(420, 320);
             drawPointCloud();
 		ofPopMatrix();
+        ofSetColor(255, 255 ,255);
+        ofRect(0, 0, ofGetWidth(), 30);
+        ofSetColor(0,0,0);
+        stringstream reportStream;
+        
+        if(povLock) {
+            reportStream << "Now viewing:  3D Point Cloud";
+        } else {
+            reportStream << "Now viewing:  Free View Mode (Move mouse to alter point cloud)";
+        }
+        
+        ofDrawBitmapString(reportStream.str(),20,20);
 	}
     
     if(calibrate){
         kinect.drawDepth(10, 10, 400, 300);
         kinect.draw(420, 10, 400, 300);
-
 		grayImage.draw(10, 320, 400, 300);
 		contourFinder.draw(10, 320, 400, 300);
 	}
 	
-
-    
     if(showReport){
 	ofSetColor(255, 255, 255);
 	stringstream reportStream;
@@ -107,25 +134,58 @@ void testApp::draw() {
     }
 }
 
+
 void testApp::drawPointCloud() {
 	ofScale(400, 400, 400);
 	int w = 640;
 	int h = 480;
-	ofRotateY(pointCloudRotationY);
 	float* distancePixels = kinect.getDistancePixels();
     
     glPushMatrix();
+
+    float mx = ofMap(mouseX, 0, ofGetWidth(), -5, 1);
+    float my = ofMap(mouseY, 0, ofGetHeight(), -5, 1);
+    
+    glRotatef( 500 , -.1, 0, 0);
+    if(!povLock){
+        glTranslatef(mx, 0, my);
+    }
+
+    
+    if (angle > 360) {
+        angle =0;
+    } 
+    float maxValue = 0;
+    ofPoint maxPoint;
 	glBegin(GL_POINTS);
 	int step = 2;
 	for(int y = 0; y < h; y += step) {
 		for(int x = 0; x < w; x += step) {
 			ofPoint cur = kinect.getWorldCoordinateFor(x,y);
-			ofColor color = kinect.getCalibratedColorAt(x,y);
-			glColor3ub((unsigned char)color.r,(unsigned char)color.g,(unsigned char)color.b);
-			glVertex3f(cur.x, cur.y, cur.z);
+//            ofColor color = kinect.getCalibratedColorAt(x,y);
+            ofColor color;  color.r = 125; color.g = 255; color.b = 255;
+            ofColor newColor = HSVToRGB(cur.z*0.75, 0.5, 1, color);
+            
+            ofSetColor(newColor.r, newColor.g, newColor.b);
+            
+            if(maxValue < cur.z) { 
+                maxValue = cur.z;
+                maxPoint.set(cur.x, cur.y, cur.z);
+            }
+//            ofSetColor(0,0,0);
+//			glColor3ub((unsigned char)color.r,(unsigned char)color.g,(unsigned char)color.b);
+			glVertex3f(cur.x*2, cur.y*2, cur.z*2);
 		}
 	}
 	glEnd();
+//    cout << maxValue <<"\n";
+    glBegin(GL_POINTS);
+    glPointSize(20);
+    ofSetColor(255, 0, 0);
+    glVertex3f(maxPoint.x, maxPoint.y, maxPoint.z);
+    glPointSize(1);
+    glEnd();
+    
     glPopMatrix();
 }
 
@@ -139,10 +199,10 @@ void testApp::keyPressed (int key) {
 		case ' ':
 //			bThreshWithOpenCV = !bThreshWithOpenCV;
             povLock = !povLock;
+         //   calibrate = !calibrate;
             break;
 		case'p':
 			drawPC = !drawPC;
-            calibrate = !calibrate;
             break;            
             
 		case '>':
@@ -157,7 +217,7 @@ void testApp::keyPressed (int key) {
 			break;
 			
         case 'r':
-            showReport = !showReport;
+//            showReport = !showReport;
             break;
 		case '+':
 		case '=':
@@ -197,6 +257,7 @@ void testApp::keyPressed (int key) {
 void testApp::mouseMoved(int x, int y) {
 	if (!povLock){
         pointCloudRotationY = x;
+        pointCloudRotationX = y;
     }
 }
 
@@ -215,13 +276,27 @@ void testApp::mousePressed(int x, int y, int button)
     float normY = ofNormalize(y, 0, ofGetHeight());
     float zDepth = kinect.getDistanceAt(ofPoint(ofMap(normX, 0, 1, 0, 640), ofMap(normY, 0, 1, 0, 480)));
     float normZ = ofNormalize(zDepth, 0, 400);
+
     
-    ofPoint tp;
-    tp.set(normX, normY,normZ);
-    pois.push_back(tp);
-    cout << "Distance at " << x << " : " << y << " is " << kinect.getDistanceAt(ofPoint(ofMap(normX, 0, 1, 0, 640), ofMap(normY, 0, 1, 0, 480))) << "\n";    
-    cout << tp.x << ", " << tp.y << ", " << tp.z << "\n";
+    // push into array
+    pois.push_back(getDepthAsOfPoint(x, y, zDepth));
+    cout << "Distance at " << x << " : " << y << " is " << kinect.getDistanceAt(ofPoint(ofMap(normX, 0, 1, 0, 640), ofMap(normY, 0, 1, 0, 480))) << "\n";   
+    int loc = pois.size()-1;
+    cout << pois[loc].x << ", " << pois[loc].y << ", " << pois[loc].z << "\n";
     
+}
+
+
+// automatically maps x / y to ofGetWidth() ofGetHeight().
+// needs a method that accepts a bounding box to map
+ofPoint testApp::getDepthAsOfPoint(float _x, float _y, float _zDepth){
+
+    float normX = ofNormalize(_x, 0, ofGetWidth());
+    float normY = ofNormalize(_y, 0, ofGetHeight());
+    float zDepth = _zDepth;
+    float normZ = ofNormalize(zDepth, 0, 400);
+    
+    return ofPoint(normX, normY, normZ);
 }
 
 void testApp::mouseReleased(int x, int y, int button)
@@ -260,3 +335,19 @@ void testApp::newTouch(int & n) {
 void testApp::removedTouch(int & r) {
 //        cout << "------ a removed touch"<<r<<"\n";
 }
+
+
+ofColor testApp::HSVToRGB(float H, float S, float V, ofColor &in){ // (0-1, 0-1, 0-1) //applies hsv transform to the ofColor &in
+    
+    H = H*360;
+    
+    float VSU = V*S*cos(H*M_PI/180);
+    float VSW = V*S*sin(H*M_PI/180);
+    
+    ofColor ret;
+    ret.r = (.299*V+.701*VSU+.168*VSW)*in.r + (.587*V-.587*VSU+.330*VSW)*in.g + (.114*V-.114*VSU-.497*VSW)*in.b;
+    ret.g = (.299*V-.299*VSU-.328*VSW)*in.r + (.587*V+.413*VSU+.035*VSW)*in.g + (.114*V-.114*VSU+.292*VSW)*in.b;
+    ret.b = (.299*V-.3*VSU+1.25*VSW)*in.r + (.587*V-.588*VSU-1.05*VSW)*in.g + (.114*V+.886*VSU-.203*VSW)*in.b;
+    return ret;
+}
+
