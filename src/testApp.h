@@ -4,7 +4,7 @@
 #include "ofxOpenCv.h"
 #include "ofxKinect.h"
 #include "ofxMultiTouchPad.h"
-
+#include "depthMath.h"
 class testApp : public ofBaseApp {
 	public:
 
@@ -41,6 +41,7 @@ class testApp : public ofBaseApp {
     
         vector<MTouch> touches;
         vector<ofPoint> pois;
+        vector<ofPoint> points;
 
 		bool	bThreshWithOpenCV;
 		bool	drawPC;
@@ -55,5 +56,8 @@ class testApp : public ofBaseApp {
         bool    calibrate;
         bool    showReport;
         bool    povLock;
-    ofColor HSVToRGB(float H, float S, float V, ofColor &in);
+        ofColor HSVToRGB(float H, float S, float V, ofColor &in);
+    
+    depthMath depth;
+        
 };

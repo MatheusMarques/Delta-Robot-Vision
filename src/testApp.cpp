@@ -34,7 +34,7 @@ void testApp::setup() {
 
 void testApp::update() {
 	ofBackground(100, 100, 100);
-	
+
 	kinect.update();
 	if(kinect.isFrameNew())	// there is a new frame and we are connected
 	{
@@ -64,6 +64,7 @@ void testApp::update() {
 		grayImage.flagImageChanged();
     	contourFinder.findContours(grayImage, 10, (kinect.width*kinect.height)/2, 20, false);
 	}
+    
 }
 
 void testApp::draw() {
@@ -159,6 +160,12 @@ void testApp::drawPointCloud() {
     ofPoint maxPoint;
 	glBegin(GL_POINTS);
 	int step = 2;
+    
+    // tk clear points array to repopulate with fresh data
+    points.clear();
+    points.empty();
+    
+
 	for(int y = 0; y < h; y += step) {
 		for(int x = 0; x < w; x += step) {
 			ofPoint cur = kinect.getWorldCoordinateFor(x,y);
@@ -175,6 +182,9 @@ void testApp::drawPointCloud() {
 //            ofSetColor(0,0,0);
 //			glColor3ub((unsigned char)color.r,(unsigned char)color.g,(unsigned char)color.b);
 			glVertex3f(cur.x*2, cur.y*2, cur.z*2);
+            
+            // move all values into a global vector for fucking with
+            points.push_back(cur);
 		}
 	}
 	glEnd();
@@ -322,9 +332,6 @@ void testApp::padUpdates(int & touchCount) {
         } else if (pMouseY < mouseY){
             cout << "down";
         }
-        cout << "\n";
-        pMouseY = mouseY; 
-        pMouseX = mouseX;
     }
 }
 
