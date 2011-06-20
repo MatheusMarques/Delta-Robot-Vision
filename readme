@@ -1,6 +1,13 @@
 Re-pulled original ofxKinect example because I couldn't revert the generated pointcloud of the working git.  
 The pointcloud was drawn inversely and was a bit fucked.
 
+21 June:  Merged playtime branch
+	- Determined high point thresholds
+	- Limited ofPoints returned for optimisation
+	- TODO:  make thresholds for high points adjustable
+	- TODO:  incorporate mutlitouch.framework
+	- TODO:  add pointOfInterest selection via mouse click for determining 'highpoint'
+
 20 June:  TODO
 
 	- Calibrate threshold values and adjust the floor and ceiling values dynamically
