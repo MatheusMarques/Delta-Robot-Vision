@@ -13,7 +13,7 @@ class testApp : public ofBaseApp {
 		void draw();
 		void exit();
 	
-		void drawPointCloud();
+		void drawPointCloud(float tolerance);
 
 		void keyPressed  (int key);
 		void mouseMoved(int x, int y );
@@ -22,6 +22,8 @@ class testApp : public ofBaseApp {
 		void mouseReleased(int x, int y, int button);
 		void windowResized(int w, int h);
 
+        float tolerance;
+    
 		ofxKinect kinect;
         ofxCvContourFinder 	contourFinder;
 
@@ -42,6 +44,8 @@ class testApp : public ofBaseApp {
         vector<MTouch> touches;
         vector<ofPoint> pois;
         vector<ofPoint> points;
+    
+    void drawHighPoints();
 
 		bool	bThreshWithOpenCV;
 		bool	drawPC;

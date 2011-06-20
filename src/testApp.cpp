@@ -22,10 +22,11 @@ void testApp::setup() {
 	
 	pointCloudRotationY = 180;
 	
-	drawPC = FALSE;
+	drawPC = true;
     calibrate = false;
     povLock = true;
 
+    tolerance = 1.0f;
     
     ofAddListener(pad.update, this, &testApp::padUpdates);
     ofAddListener(pad.touchAdded, this, &testApp::newTouch);
@@ -65,15 +66,36 @@ void testApp::update() {
     	contourFinder.findContours(grayImage, 10, (kinect.width*kinect.height)/2, 20, false);
 	}
     
+    // get depth details here
+    // therefore, clear point vector
+    points.clear();
+    points.empty();
+    
+    // move to points vector
+    
 }
 
+
+
+void testApp::drawHighPoints(){
+    ofPoint cur = kinect.getWorldCoordinateFor( ofGetWidth()/2, ofGetHeight()/2);
+    // MAP THE FUCKEN Z AXIS!
+    cur.z = ofNormalize(cur.z, 0, 4.0f);
+    cout << cur.z << "\n";
+         
+}
+
+
+
+
 void testApp::draw() {
+    drawHighPoints();
+    
     if(!drawPC){
         kinect.draw(0, 0, ofGetWidth(), ofGetHeight());
         stringstream reportStream;
         ofSetColor(0,0,0);
 
-//        ofSetColor(255, 255, 255);
         reportStream << "Depth Select Mode" << endl;
         if(pois.size() > 0){
             int last = pois.size()-1;
@@ -95,7 +117,7 @@ void testApp::draw() {
         ofRect(0,0, ofGetWidth(), ofGetHeight());
 		ofPushMatrix();
 		ofTranslate(420, 320);
-            drawPointCloud();
+            drawPointCloud(tolerance);
 		ofPopMatrix();
         ofSetColor(255, 255 ,255);
         ofRect(0, 0, ofGetWidth(), 30);
@@ -135,68 +157,60 @@ void testApp::draw() {
     }
 }
 
+bool topdown = true;
 
-void testApp::drawPointCloud() {
+void testApp::drawPointCloud(float tolerance) {
 	ofScale(400, 400, 400);
 	int w = 640;
 	int h = 480;
-	float* distancePixels = kinect.getDistancePixels();
     
     glPushMatrix();
 
     float mx = ofMap(mouseX, 0, ofGetWidth(), -5, 1);
     float my = ofMap(mouseY, 0, ofGetHeight(), -5, 1);
     
-    glRotatef( 500 , -.1, 0, 0);
-    if(!povLock){
-        glTranslatef(mx, 0, my);
+    if(topdown){
+     //   glRotatef( 500 , -.1, 0, 0);
     }
-
     
-    if (angle > 360) {
-        angle =0;
-    } 
-    float maxValue = 0;
-    ofPoint maxPoint;
 	glBegin(GL_POINTS);
-	int step = 2;
-    
+	int step = 2    ;
     // tk clear points array to repopulate with fresh data
     points.clear();
     points.empty();
     
+    ofPoint chosenPoint;
+    
+    if(pois.size() > 0){
+        chosenPoint = pois[pois.size()];
+    } else {chosenPoint = ofPoint(0.5, 0.5, 0.5);}
 
+    
+    
 	for(int y = 0; y < h; y += step) {
 		for(int x = 0; x < w; x += step) {
+
 			ofPoint cur = kinect.getWorldCoordinateFor(x,y);
-//            ofColor color = kinect.getCalibratedColorAt(x,y);
-            ofColor color;  color.r = 125; color.g = 255; color.b = 255;
-            ofColor newColor = HSVToRGB(cur.z*0.75, 0.5, 1, color);
-            
-            ofSetColor(newColor.r, newColor.g, newColor.b);
-            
-            if(maxValue < cur.z) { 
-                maxValue = cur.z;
-                maxPoint.set(cur.x, cur.y, cur.z);
+            cur.z = ofMap(cur.z, 0, 4.0, 0, 1); 
+            if (cur.z > chosenPoint.z - tolerance/2 && cur.z < chosenPoint.z + tolerance / 2) {
+                ofColor color;  color.r = 125; color.g = 255; color.b = 255;
+                ofColor newColor = HSVToRGB(cur.z*0.75, 0.5, 1, color);
+                ofSetColor(newColor.r, newColor.g, newColor.b);
+                
+
+                glVertex3f(cur.x, cur.y, cur.z);
+                points.push_back(cur);
             }
-//            ofSetColor(0,0,0);
-//			glColor3ub((unsigned char)color.r,(unsigned char)color.g,(unsigned char)color.b);
-			glVertex3f(cur.x*2, cur.y*2, cur.z*2);
-            
-            // move all values into a global vector for fucking with
-            points.push_back(cur);
+
 		}
 	}
+    cout << tolerance;
+    depth.update(points);
 	glEnd();
-//    cout << maxValue <<"\n";
-    glBegin(GL_POINTS);
-    glPointSize(20);
-    ofSetColor(255, 0, 0);
-    glVertex3f(maxPoint.x, maxPoint.y, maxPoint.z);
-    glPointSize(1);
-    glEnd();
     
     glPopMatrix();
+
+//    cout << "\n highpoint: " << depth.findHighPoint().z << "\n";
 }
 
 void testApp::exit() {
@@ -272,7 +286,9 @@ void testApp::mouseMoved(int x, int y) {
 }
 
 void testApp::mouseDragged(int x, int y, int button)
-{}
+{
+    tolerance = ofNormalize(x, 0, ofGetWidth());
+}
 
 void testApp::mousePressed(int x, int y, int button)
 {
@@ -285,6 +301,7 @@ void testApp::mousePressed(int x, int y, int button)
     float normX = ofNormalize(x, 0, ofGetWidth());
     float normY = ofNormalize(y, 0, ofGetHeight());
     float zDepth = kinect.getDistanceAt(ofPoint(ofMap(normX, 0, 1, 0, 640), ofMap(normY, 0, 1, 0, 480)));
+    cout << zDepth << "\n";
     float normZ = ofNormalize(zDepth, 0, 400);
 
     
@@ -317,21 +334,13 @@ void testApp::windowResized(int w, int h)
 
 void testApp::padUpdates(int & touchCount) {
     
-    // will be used to speed up calibration details.
-    // 
     if (touchCount == 2){
-
-        if (pMouseX > mouseX) {
-            cout << "left";
-        } else if (pMouseX < mouseX) {
-            cout << "right";
+        MTouch t1, t2;
+        if(pad.getTouchAt(0, &t1) && pad.getTouchAt(1, &t2)){
+            
         }
         
-        if (pMouseY > mouseY){
-            cout << "up";
-        } else if (pMouseY < mouseY){
-            cout << "down";
-        }
+        
     }
 }
 

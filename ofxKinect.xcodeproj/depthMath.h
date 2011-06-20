@@ -19,8 +19,8 @@ public:
     depthMath();
     
     bool update(vector<ofPoint> _pts);
-    bool findHighPoint();
-    
+    ofPoint findHighPoint();
+    vector<ofPoint> nearestNeighbours(ofPoint origin, float tolerance);
     
     vector<ofPoint> pts;
 };

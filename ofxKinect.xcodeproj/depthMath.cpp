@@ -13,18 +13,27 @@ depthMath::depthMath(){
 }
 
 bool depthMath::update(vector<ofPoint> _pts){
+    pts.empty();
+    pts.clear();
+    
     pts = _pts;
     return true;
 }
 
-bool depthMath::findHighPoint(){
-    ofPoint tempHighest = ofPoint(0.0, 0.0, 0.0);
+ofPoint depthMath::findHighPoint(){
+    ofPoint maxValue = pts[0];
     
-    if(pts.size()>0){
-        for (int i = 0; i < pts.size(); i++) {
-            if(pts[i].z > tempHighest.z){
-
-            }
+    for (int i=1; i < pts.size()-1; i++){
+        if(pts[i].z > maxValue.z) {
+            maxValue = pts[i];
         }
     }
+    
+    
+    return maxValue;
 }
+
+vector<ofPoint> depthMath::nearestNeighbours(ofPoint origin, float tolerance){
+    float dist = ofNormalize(tolerance, 0, 100);    
+}
+
