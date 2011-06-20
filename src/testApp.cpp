@@ -80,29 +80,14 @@ void testApp::update() {
         
 		grayImage.setFromPixels(kinect.getDepthPixels(), kinect.width, kinect.height);
         
-		//we do two thresholds - one for the far plane and one for the near plane
-		//we then do a cvAnd to get the pixels which are a union of the two thresholds.	
 		if( bThreshWithOpenCV ){
 			grayThreshFar = grayImage;
 			grayThresh = grayImage;
 			grayThresh.threshold(nearThreshold, true);
 			grayThreshFar.threshold(farThreshold);
 			cvAnd(grayThresh.getCvImage(), grayThreshFar.getCvImage(), grayImage.getCvImage(), NULL);
-		}else{
-            
-			//or we do it ourselves - show people how they can work with the pixels
-            
-			unsigned char * pix = grayImage.getPixels();
-			int numPixels = grayImage.getWidth() * grayImage.getHeight();
-            
-			for(int i = 0; i < numPixels; i++){
-				if( pix[i] < nearThreshold && pix[i] > farThreshold ){
-					pix[i] = 255;
-				}else{
-					pix[i] = 0;
-				}
-			}
 		}
+        
 		grayImage.flagImageChanged();
     	contourFinder.findContours(grayImage, 10, (kinect.width*kinect.height)/2, 20, false);
 	}
@@ -141,7 +126,19 @@ void testApp::draw() {
         }
         
     } else if(drawPC && viewport){
-		kinect.draw(0, 0, ofGetWidth(), ofGetHeight());
+
+		// kinect.draw(0, 0, ofGetWidth(), ofGetHeight());
+        // dont draw antthing if no origin mark witnessed
+        if(viewportOrigin.x != 0.0f){
+            // draw bounding box
+            ofSetColor(255, 0, 0);
+            ofNoFill();
+            ofSetRectMode(OF_RECTMODE_CENTER);
+            ofRect(viewportOrigin.x, viewportOrigin.y, mouseX, mouseY);
+            viewportEnd = ofPoint(mouseX, mouseY);
+            cout << viewportOrigin.x << " : " << viewportOrigin.y << " viewport origin \n";
+            cout << viewportEnd.x << " : " << viewportEnd.y << " viewport end \n";
+        }
     }
     else{
 		kinect.drawDepth(10, 10, 400, 300);
@@ -162,6 +159,23 @@ void testApp::drawPointCloud() {
 	ofScale(500, 500, 500);
 	int w = 640;
 	int h = 480;
+    int width = 0; int height = 0;
+    
+    // if viewportOrigin.x != 0.0, then it has been set by user
+    if (viewportOrigin.x != 0.0f){
+        
+        // map values to kinect ratio
+        ofPoint vs = mapPointTo(viewportOrigin, 640, 480);
+        ofPoint ve = mapPointTo(viewportEnd, 640, 480);
+        
+        // change w & h according to viewport
+        int width = ve.x - vs.x;
+        int height = ve.y - vs.y;
+        
+        // choose only those pixels of interest based on viewport
+    } 
+        // otherwise defaults
+
     
 	ofRotateY(pointCloudRotationY);
 	float* distancePixels = kinect.getDistancePixels();
@@ -169,11 +183,9 @@ void testApp::drawPointCloud() {
     float closeZ = 1.0; // a LOW value ie: 0.1 is closer to the camera.  Higher is further
     ofPoint closePoint = ofPoint (1.0, 1.0, 1.0);
     
-    
     // clear each frame
     normPoints.clear(); normPoints.empty();
     
-
     glScalef(1, 1, 0.5);
     
     if(tumble){
@@ -184,8 +196,8 @@ void testApp::drawPointCloud() {
     
 	glBegin(GL_POINTS);
 	int step = 3;    
-	for(int y = 0; y < h; y += step) {
-		for(int x = 0; x < w; x += step) {
+	for(int y = width; y < h; y += step) {
+		for(int x = height; x < w; x += step) {
 			ofPoint raw = kinect.getWorldCoordinateFor(x, y);
             
             // leave points normal for drawing onscreen
@@ -206,9 +218,9 @@ void testApp::drawPointCloud() {
             float upperLimit = closePoint.z + tolerance / 2 ;
                 
             ofColor colorRgb;
-            colorRgb.r = 125;
-            colorRgb.g = 125;
-            colorRgb.b = 125;
+                colorRgb.r = 125;
+                colorRgb.g = 125;
+                colorRgb.b = 125;
             ofSetColor(colorRgb.r, colorRgb.g, colorRgb.b);
             
             lowerLimit = 0.0f; // temp
@@ -225,13 +237,14 @@ void testApp::drawPointCloud() {
                 normPoints.push_back(raw);
             }
             
-            
+            // depthMath
             // crude dist measurements vs. highpoints
             if(ofDist(1.0, raw.z, 1.0, closePoint.z) < 0.2f){
                 ofSetColor(0, 255, 255);
                 glVertex3f(drawPnt.x, drawPnt.y, drawPnt.z);   
             }
-            
+                
+            // depthMath
             // crude high point
             // this needs to be averaged like the dist measurement above - not returning correct information
             if(ofDist(1.0, raw.z, 1.0, closePoint.z) < 0.001f){
@@ -243,6 +256,13 @@ void testApp::drawPointCloud() {
 	}
 	glEnd();
     
+}
+
+ofPoint testApp::mapPointTo(ofPoint _p, float _mx, float _my){
+    ofPoint p;
+    p.x = ofMap(_p.x, 0, ofGetWidth(), 0, _mx);
+    p.y = ofMap(_p.y, 0, ofGetHeight(), 0, _my);    
+    return p;
 }
 
 ofPoint testApp::normalizeOfPoint(float x, float w, float y, float h, float z, float d){
@@ -345,8 +365,6 @@ void testApp::keyPressed (int key) {
 void testApp::mouseMoved(int x, int y) {
     int _x = ofMap(x, 0, ofGetWidth(), 490, 540);
     pointCloudRotationY = _x;
-//    pointCloudRotationY = x;
-//    cout << "x: " << x << " \n";
 }
 
 //--------------------------------------------------------------
@@ -356,8 +374,8 @@ void testApp::mouseDragged(int x, int y, int button)
 //    cout << tolerance;
     if(viewport){
         if(viewportOrigin.x != 0.0){
-            ofSetColor(255, 0, 0);
-            ofRect(viewportOrigin.x, viewportOrigin.y, x, y);
+//            ofSetColor(255, 0, 0);
+//            ofRect(viewportOrigin.x, viewportOrigin.y, x, y);
         }
     }
     
@@ -376,8 +394,8 @@ void testApp::mousePressed(int x, int y, int button)
 void testApp::mouseReleased(int x, int y, int button)
 {
     if(viewport){
-        viewportEnd = ofPoint(x, y, 0.0);
-        cout << viewportEnd.x << " : " << viewportEnd.y << "viewport end \n";
+//        viewportEnd = ofPoint(x, y, 0.0);
+//        cout << viewportEnd.x << " : " << viewportEnd.y << "viewport end \n";
 
     }
 }
