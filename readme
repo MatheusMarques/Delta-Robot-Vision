@@ -1,0 +1,18 @@
+Re-pulled original ofxKinect example because I couldn't revert the generated pointcloud of the working git.  
+The pointcloud was drawn inversely and was a bit fucked.
+
+20 June:  TODO
+
+	- Calibrate threshold values and adjust the floor and ceiling values dynamically
+	- Map these values to blob detection
+	- Enable blob detection
+	- Accurately measure distance in real measurement units (m)
+
+
+Have added the following to project:
+
+	- normalizeOfPoint(x, w, y, h, z, d):  w, h, d are upper thresholds. All low thresh's are 0.0f
+	- HighestZ: gets and sets the closest point to the camera as highestZ
+		- used to find the highest point and range tolerance based on this point
+	- tolerance:  normal between 0.0f and 1.0f.  Affects upperLimit && lowerLimit by exactly tolerance * 0.5
+	

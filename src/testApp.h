@@ -3,65 +3,46 @@
 #include "ofMain.h"
 #include "ofxOpenCv.h"
 #include "ofxKinect.h"
-#include "ofxMultiTouchPad.h"
-#include "depthMath.h"
+
 class testApp : public ofBaseApp {
-	public:
-
-		void setup();
-		void update();
-		void draw();
-		void exit();
+public:
+    
+    void setup();
+    void update();
+    void draw();
+    void exit();
 	
-		void drawPointCloud(float tolerance);
-
-		void keyPressed  (int key);
-		void mouseMoved(int x, int y );
-		void mouseDragged(int x, int y, int button);
-		void mousePressed(int x, int y, int button);
-		void mouseReleased(int x, int y, int button);
-		void windowResized(int w, int h);
-
-        float tolerance;
+    void drawPointCloud();
     
-		ofxKinect kinect;
-        ofxCvContourFinder 	contourFinder;
-
-		ofxCvColorImage         colorImg;
-		ofxCvGrayscaleImage 	grayImage;
-		ofxCvGrayscaleImage 	grayThresh;
-		ofxCvGrayscaleImage 	grayThreshFar;
+    void keyPressed  (int key);
+    void mouseMoved(int x, int y );
+    void mouseDragged(int x, int y, int button);
+    void mousePressed(int x, int y, int button);
+    void mouseReleased(int x, int y, int button);
+    void windowResized(int w, int h);
     
-
-        ofxMultiTouchPad pad;
-        void padUpdates(int & t);
-        void newTouch(int & n);
-        void removedTouch(int & r);
-        
-    ofPoint getDepthAsOfPoint(float _x, float _y, float zDepth);
-        
+    ofxKinect kinect;
     
-        vector<MTouch> touches;
-        vector<ofPoint> pois;
-        vector<ofPoint> points;
+    ofxCvColorImage		colorImg;
     
-    void drawHighPoints();
-
-		bool	bThreshWithOpenCV;
-		bool	drawPC;
-
-		int 	nearThreshold;
-		int		farThreshold;
-
-		int		angle;
-        int     pMouseX, pMouseY;
+    ofxCvGrayscaleImage 	grayImage;
+    ofxCvGrayscaleImage 	grayThresh;
+    ofxCvGrayscaleImage 	grayThreshFar;
     
-		int 	pointCloudRotationY, pointCloudRotationX;
-        bool    calibrate;
-        bool    showReport;
-        bool    povLock;
-        ofColor HSVToRGB(float H, float S, float V, ofColor &in);
+    ofxCvContourFinder 	contourFinder;
     
-    depthMath depth;
-        
+    bool				bThreshWithOpenCV;
+    bool				drawPC;
+    
+    int 				nearThreshold;
+    int					farThreshold;
+    
+    int					angle;
+    
+    int 				pointCloudRotationY;
+    
+    void drawGrid(int spacing, int lines, int zDepth);
+    ofPoint normalizeOfPoint(float x, float w, float y, float h, float z, float d);
+    ofColor HSVToRGB(float H, float S, float V, ofColor &in);
+  
 };
