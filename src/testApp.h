@@ -41,6 +41,9 @@ public:
     
     int 				pointCloudRotationY;
     
+    ofPoint viewportOrigin;
+    ofPoint viewportEnd;
+    
     void drawGrid(int spacing, int lines, int zDepth);
     ofPoint normalizeOfPoint(float x, float w, float y, float h, float z, float d);
     ofColor HSVToRGB(float H, float S, float V, ofColor &in);

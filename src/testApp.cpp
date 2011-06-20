@@ -3,6 +3,7 @@
 bool findHighest;
 bool tumble;
 bool debug;
+bool viewport;
 float tolerance;
 
 #pragma mark - TODO
@@ -63,6 +64,7 @@ void testApp::setup() {
     tolerance = 1.0f; // shows everything
     tumble = true;
     debug = false;
+    viewport = false;
     
     mouseY = 220;
     ofBackground(0, 0, 0);
@@ -109,7 +111,7 @@ void testApp::update() {
 
 
 void testApp::draw() {
-	if(drawPC){
+	if(drawPC && !viewport){
 		ofPushMatrix();
         glTranslatef(ofGetWidth()/2,ofGetHeight()/2,0);
             drawPointCloud();
@@ -136,11 +138,12 @@ void testApp::draw() {
 //            glRotatef(ofGetElapsedTimef()*10,0,0,0);
 //            glRotatef(ofGetElapsedTimef()*11,0,1,0);
 //            glRotatef(ofGetElapsedTimef()*7,0,0,1);
-            
-
         }
         
-    }else{
+    } else if(drawPC && viewport){
+		kinect.draw(0, 0, ofGetWidth(), ofGetHeight());
+    }
+    else{
 		kinect.drawDepth(10, 10, 400, 300);
 		kinect.draw(420, 10, 400, 300);
         
@@ -267,6 +270,10 @@ void testApp::drawGrid(int spacing, int lines, int zDepth){
     }
 }
 
+void selectViewport(){
+    
+}
+
 //--------------------------------------------------------------
 void testApp::exit() {
 	kinect.setCameraTiltAngle(0); // zero the tilt on exit
@@ -315,6 +322,11 @@ void testApp::keyPressed (int key) {
 			kinect.close();
 			break;
             
+        case 'v':
+            if( viewport == false ) 
+            {viewport = true;} else {viewport = false;}
+            break;
+            
 		case OF_KEY_UP:
 			angle++;
 			if(angle>30) angle=30;
@@ -334,23 +346,41 @@ void testApp::mouseMoved(int x, int y) {
     int _x = ofMap(x, 0, ofGetWidth(), 490, 540);
     pointCloudRotationY = _x;
 //    pointCloudRotationY = x;
-    cout << "x: " << x << " \n";
+//    cout << "x: " << x << " \n";
 }
 
 //--------------------------------------------------------------
 void testApp::mouseDragged(int x, int y, int button)
 {
     tolerance = ofNormalize(y, 0, ofGetHeight());
-    cout << tolerance;
+//    cout << tolerance;
+    if(viewport){
+        if(viewportOrigin.x != 0.0){
+            ofSetColor(255, 0, 0);
+            ofRect(viewportOrigin.x, viewportOrigin.y, x, y);
+        }
+    }
+    
 }
 
 //--------------------------------------------------------------
 void testApp::mousePressed(int x, int y, int button)
-{}
+{
+    if(viewport){
+        viewportOrigin = ofPoint(x, y, 0.0);
+        cout << viewportOrigin.x << " : " << viewportOrigin.y << "viewport origin \n";
+    }
+}
 
 //--------------------------------------------------------------
 void testApp::mouseReleased(int x, int y, int button)
-{}
+{
+    if(viewport){
+        viewportEnd = ofPoint(x, y, 0.0);
+        cout << viewportEnd.x << " : " << viewportEnd.y << "viewport end \n";
+
+    }
+}
 
 //--------------------------------------------------------------
 void testApp::windowResized(int w, int h)
