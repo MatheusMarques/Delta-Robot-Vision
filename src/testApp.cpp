@@ -2,6 +2,7 @@
 
 bool findHighest;
 bool tumble;
+bool debug;
 float tolerance;
 
 #pragma mark - TODO
@@ -59,8 +60,9 @@ void testApp::setup() {
     glEnable(GL_FOG);
     
     findHighest = true;
-    tolerance = 1.0f;
+    tolerance = 1.0f; // shows everything
     tumble = true;
+    debug = false;
     
     mouseY = 220;
     ofBackground(0, 0, 0);
@@ -104,7 +106,8 @@ void testApp::update() {
 	}
 }
 
-//--------------------------------------------------------------
+
+
 void testApp::draw() {
 	if(drawPC){
 		ofPushMatrix();
@@ -112,8 +115,10 @@ void testApp::draw() {
             drawPointCloud();
  		ofPopMatrix();
         
-        grayImage.draw(ofGetWidth()-210, ofGetHeight()-160, 200, 150);
-        contourFinder.draw(ofGetWidth()-210, ofGetHeight()-160, 200, 150);
+        if(debug){
+            grayImage.draw(ofGetWidth()-210, ofGetHeight()-160, 200, 150);
+            contourFinder.draw(ofGetWidth()-210, ofGetHeight()-160, 200, 150);
+        }
         
         glRotatef(-mouseY,1,0,0);
         glRotatef(-mouseX,0,1,0);
@@ -225,7 +230,8 @@ void testApp::drawPointCloud() {
             }
             
             // crude high point
-            if(raw.z == closePoint.z){
+            // this needs to be averaged like the dist measurement above - not returning correct information
+            if(ofDist(1.0, raw.z, 1.0, closePoint.z) < 0.001f){
                 ofSetColor(255, 0, 0);
                 glVertex3f(drawPnt.x, drawPnt.y, drawPnt.z);
             }
