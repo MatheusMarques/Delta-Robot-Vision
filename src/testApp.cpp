@@ -1,6 +1,7 @@
 #include "testApp.h"
 
 bool findHighest;
+bool tumble;
 float tolerance;
 
 #pragma mark - TODO
@@ -59,12 +60,15 @@ void testApp::setup() {
     
     findHighest = true;
     tolerance = 1.0f;
+    tumble = true;
     
+    mouseY = 220;
+    ofBackground(0, 0, 0);
 }
 
 //--------------------------------------------------------------
 void testApp::update() {
-	ofBackground(100, 100, 100);
+
 	
 	kinect.update();
 	if(kinect.isFrameNew())	// there is a new frame and we are connected
@@ -102,14 +106,36 @@ void testApp::update() {
 
 //--------------------------------------------------------------
 void testApp::draw() {
-	ofSetColor(255, 255, 255);
 	if(drawPC){
 		ofPushMatrix();
-		ofTranslate(420, 320);
-		// we need a proper camera class
-		drawPointCloud();
-		ofPopMatrix();
-	}else{
+        glTranslatef(ofGetWidth()/2,ofGetHeight()/2,0);
+            drawPointCloud();
+ 		ofPopMatrix();
+        
+        grayImage.draw(ofGetWidth()-210, ofGetHeight()-160, 200, 150);
+        contourFinder.draw(ofGetWidth()-210, ofGetHeight()-160, 200, 150);
+        
+        glRotatef(-mouseY,1,0,0);
+        glRotatef(-mouseX,0,1,0);
+        
+//        ofSetColor(0xdddddd);
+//        glLineWidth(1);
+//        drawGrid(50, 150, -500);
+//        glLineWidth(4);
+	
+        if (!tumble){
+            glRotatef(-mouseY,1,0,0);
+            glRotatef(-mouseX,0,1,0);
+        }else{
+            
+//            glRotatef(ofGetElapsedTimef()*10,0,0,0);
+//            glRotatef(ofGetElapsedTimef()*11,0,1,0);
+//            glRotatef(ofGetElapsedTimef()*7,0,0,1);
+            
+
+        }
+        
+    }else{
 		kinect.drawDepth(10, 10, 400, 300);
 		kinect.draw(420, 10, 400, 300);
         
@@ -117,24 +143,36 @@ void testApp::draw() {
 		contourFinder.draw(10, 320, 400, 300);
 	}
 	
-    
-	ofSetColor(255, 255, 255);
+
+//	ofSetColor(0, 0, 0);
 	stringstream reportStream;
 }
 
 vector<ofPoint> normPoints;
 
 void testApp::drawPointCloud() {
-	ofScale(400, 400, 400);
+	ofScale(500, 500, 500);
 	int w = 640;
 	int h = 480;
+    
 	ofRotateY(pointCloudRotationY);
 	float* distancePixels = kinect.getDistancePixels();
     
-    float closePnt = 1.0; // a LOW value ie: 0.1 is closer to the camera.  Higher is further
+    float closeZ = 1.0; // a LOW value ie: 0.1 is closer to the camera.  Higher is further
+    ofPoint closePoint = ofPoint (1.0, 1.0, 1.0);
+    
     
     // clear each frame
     normPoints.clear(); normPoints.empty();
+    
+
+    glScalef(1, 1, 0.5);
+    
+    if(tumble){
+//        glRotatef(ofGetElapsedTimef()*30,0,0,1);
+//        glRotatef(ofGetElapsedTimef()*11,0,1,0);
+//        glRotatef(ofGetElapsedTimef()*7,0,0,1);
+    }
     
 	glBegin(GL_POINTS);
 	int step = 3;    
@@ -148,29 +186,50 @@ void testApp::drawPointCloud() {
             // normalise points for whatever purpose
             raw = normalizeOfPoint(raw.x, w, raw.y, h, raw.z, 6.0);  
             
-            //if(cur.z > 1.0){
-            //    cout << cur.z << "\n";
-            //}
-            
+            // find closest point that isn't 0.0, clipped near threshold
             if(findHighest){
-                if (raw.z < closePnt) {
-                    closePnt = raw.z;
-                    cout << "\n raw.z: " << raw.z << "\n";
+                if (raw.z < closePoint.z && raw.z != 0.0) {
+                    closePoint = raw;
+                    // cout << "\n raw.z: " << raw.z << "\n";
                 }
             }
             
-            float lowerLimit = closePnt - tolerance / 2;
-            float upperLimit = closePnt + tolerance / 2 ;
+            float lowerLimit = closePoint.z - tolerance / 2;
+            float upperLimit = closePoint.z + tolerance / 2 ;
+                
+            ofColor colorRgb;
+            colorRgb.r = 125;
+            colorRgb.g = 125;
+            colorRgb.b = 125;
+            ofSetColor(colorRgb.r, colorRgb.g, colorRgb.b);
             
-            
+            lowerLimit = 0.0f; // temp
+            upperLimit = 1.0f; // temp
             
             // filter drawn points
             if(raw.z > lowerLimit && raw.z < upperLimit){
+
+                HSVToRGB(raw.z, 0.0, 1.0, colorRgb);
                 glVertex3f(drawPnt.x, drawPnt.y, drawPnt.z);
+                
                 
                 // move drawn points to global array 
                 normPoints.push_back(raw);
             }
+            
+            
+            // crude dist measurements vs. highpoints
+            if(ofDist(1.0, raw.z, 1.0, closePoint.z) < 0.2f){
+                ofSetColor(0, 255, 255);
+                glVertex3f(drawPnt.x, drawPnt.y, drawPnt.z);   
+            }
+            
+            // crude high point
+            if(raw.z == closePoint.z){
+                ofSetColor(255, 0, 0);
+                glVertex3f(drawPnt.x, drawPnt.y, drawPnt.z);
+            }
+            
 		}
 	}
 	glEnd();
@@ -183,9 +242,6 @@ ofPoint testApp::normalizeOfPoint(float x, float w, float y, float h, float z, f
     float _z = ofNormalize(z, 0.0f, d);
     
     // reminder for close values = lower numbers
-    
-    
-    
     return ofPoint(_x, _y, _z);
 }
 
@@ -269,7 +325,10 @@ void testApp::keyPressed (int key) {
 
 //--------------------------------------------------------------
 void testApp::mouseMoved(int x, int y) {
-	pointCloudRotationY = x;
+    int _x = ofMap(x, 0, ofGetWidth(), 490, 540);
+    pointCloudRotationY = _x;
+//    pointCloudRotationY = x;
+    cout << "x: " << x << " \n";
 }
 
 //--------------------------------------------------------------
@@ -290,11 +349,6 @@ void testApp::mouseReleased(int x, int y, int button)
 //--------------------------------------------------------------
 void testApp::windowResized(int w, int h)
 {}
-
-
-
-
-
 
 ofColor testApp::HSVToRGB(float H, float S, float V, ofColor &in){ // (0-1, 0-1, 0-1) //applies hsv transform to the ofColor &in
     
