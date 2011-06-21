@@ -4,6 +4,7 @@ bool findHighest;
 bool tumble;
 bool debug;
 bool viewport;
+bool drawviewport;
 float tolerance;
 
 #pragma mark - TODO
@@ -93,12 +94,13 @@ void testApp::update() {
 	}
 }
 
-
+ofPoint poi;
 
 void testApp::draw() {
 	if(drawPC && !viewport){
 		ofPushMatrix();
         glTranslatef(ofGetWidth()/2,ofGetHeight()/2,0);
+        ofRotateZ(90);
             drawPointCloud();
  		ofPopMatrix();
         
@@ -107,8 +109,8 @@ void testApp::draw() {
             contourFinder.draw(ofGetWidth()-210, ofGetHeight()-160, 200, 150);
         }
         
-        glRotatef(-mouseY,1,0,0);
-        glRotatef(-mouseX,0,1,0);
+//        glRotatef(-mouseY,1,0,0);
+//        glRotatef(-mouseX,0,1,0);
         
 //        ofSetColor(0xdddddd);
 //        glLineWidth(1);
@@ -126,19 +128,22 @@ void testApp::draw() {
         }
         
     } else if(drawPC && viewport){
-
-		// kinect.draw(0, 0, ofGetWidth(), ofGetHeight());
+        ofPushMatrix();
+    
+        kinect.draw(0, 0, ofGetWidth(), ofGetHeight());
+        
+        ofPopMatrix();
         // dont draw antthing if no origin mark witnessed
-        if(viewportOrigin.x != 0.0f){
-            // draw bounding box
+        if(drawviewport){
             ofSetColor(255, 0, 0);
             ofNoFill();
-            ofSetRectMode(OF_RECTMODE_CENTER);
-            ofRect(viewportOrigin.x, viewportOrigin.y, mouseX, mouseY);
+            ofTranslate(0, 0);
+            ofSetRectMode(OF_RECTMODE_CORNER);
+            ofRect(viewportOrigin.x, viewportOrigin.y, mouseX-viewportOrigin.x, mouseY-viewportOrigin.y);
             viewportEnd = ofPoint(mouseX, mouseY);
-            cout << viewportOrigin.x << " : " << viewportOrigin.y << " viewport origin \n";
-            cout << viewportEnd.x << " : " << viewportEnd.y << " viewport end \n";
+            poi = kinect.getWorldCoordinateFor(mouseX, mouseY);
         }
+    
     }
     else{
 		kinect.drawDepth(10, 10, 400, 300);
@@ -153,6 +158,11 @@ void testApp::draw() {
 	stringstream reportStream;
 }
 
+void rotatePixels(ofPixels &pix, float angle){
+    
+}
+
+
 vector<ofPoint> normPoints;
 
 void testApp::drawPointCloud() {
@@ -161,24 +171,24 @@ void testApp::drawPointCloud() {
 	int h = 480;
     int width = 0; int height = 0;
     
+    ofPoint vs(0, 0, 0.0f); 
+    ofPoint ve(w, h, 0.0f);
+    
     // if viewportOrigin.x != 0.0, then it has been set by user
     if (viewportOrigin.x != 0.0f){
         
         // map values to kinect ratio
-        ofPoint vs = mapPointTo(viewportOrigin, 640, 480);
-        ofPoint ve = mapPointTo(viewportEnd, 640, 480);
+        vs = mapPointTo(viewportOrigin, 640, 480);
+        ve = mapPointTo(viewportEnd, 640, 480);
         
         // change w & h according to viewport
-        int width = ve.x - vs.x;
-        int height = ve.y - vs.y;
-        
+//        int width = ve.x - vs.x;
+//        int height = ve.y - vs.y;
         // choose only those pixels of interest based on viewport
+        
     } 
-        // otherwise defaults
-
     
 	ofRotateY(pointCloudRotationY);
-	float* distancePixels = kinect.getDistancePixels();
     
     float closeZ = 1.0; // a LOW value ie: 0.1 is closer to the camera.  Higher is further
     ofPoint closePoint = ofPoint (1.0, 1.0, 1.0);
@@ -187,17 +197,12 @@ void testApp::drawPointCloud() {
     normPoints.clear(); normPoints.empty();
     
     glScalef(1, 1, 0.5);
-    
-    if(tumble){
-//        glRotatef(ofGetElapsedTimef()*30,0,0,1);
-//        glRotatef(ofGetElapsedTimef()*11,0,1,0);
-//        glRotatef(ofGetElapsedTimef()*7,0,0,1);
-    }
-    
+        
 	glBegin(GL_POINTS);
 	int step = 3;    
-	for(int y = width; y < h; y += step) {
-		for(int x = height; x < w; x += step) {
+		for(int x = vs.x; x < ve.x; x += step) {
+            for(int y = vs.y; y < ve.y; y += step) {
+
 			ofPoint raw = kinect.getWorldCoordinateFor(x, y);
             
             // leave points normal for drawing onscreen
@@ -239,9 +244,10 @@ void testApp::drawPointCloud() {
             
             // depthMath
             // crude dist measurements vs. highpoints
-            if(ofDist(1.0, raw.z, 1.0, closePoint.z) < 0.2f){
+            if(ofDist(1.0, raw.z, 1.0, closePoint.z) < 0.1f){
                 ofSetColor(0, 255, 255);
                 glVertex3f(drawPnt.x, drawPnt.y, drawPnt.z);   
+                ofSetColor(255, 255,255);
             }
                 
             // depthMath
@@ -385,6 +391,7 @@ void testApp::mouseDragged(int x, int y, int button)
 void testApp::mousePressed(int x, int y, int button)
 {
     if(viewport){
+        drawviewport = true;
         viewportOrigin = ofPoint(x, y, 0.0);
         cout << viewportOrigin.x << " : " << viewportOrigin.y << "viewport origin \n";
     }
@@ -394,6 +401,7 @@ void testApp::mousePressed(int x, int y, int button)
 void testApp::mouseReleased(int x, int y, int button)
 {
     if(viewport){
+        drawviewport = false;
 //        viewportEnd = ofPoint(x, y, 0.0);
 //        cout << viewportEnd.x << " : " << viewportEnd.y << "viewport end \n";
 
