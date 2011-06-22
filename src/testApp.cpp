@@ -453,7 +453,6 @@ void testApp::keyPressed (int key) {
             if(interestThresh > 1.0f) interestThresh = 1.0f;
             cout << "interest point: " << interestThresh << "\n";
             break;
-            
 	}
 }
 
