@@ -5,7 +5,9 @@ bool tumble;
 bool debug;
 bool viewport;
 bool drawviewport;
+bool bOscSend;
 float tolerance;
+float interestThresh;
 
 #pragma mark - TODO
 #pragma mark : add colors to match Zak's colorverse
@@ -61,14 +63,21 @@ void testApp::setup() {
     glFogf(GL_FOG_END, 4000);
     glEnable(GL_FOG);
     
+    ofEnableAlphaBlending();
+    
     findHighest = true;
     tolerance = 1.0f; // shows everything
     tumble = true;
     debug = false;
     viewport = false;
     
+    interestThresh = 0.0f;
+    
     mouseY = 220;
     ofBackground(0, 0, 0);
+    bOscSend = true;
+    sender.setup( "localhost", 6969 );
+
 }
 
 //--------------------------------------------------------------
@@ -118,14 +127,24 @@ void testApp::draw() {
 //        glLineWidth(4);
 	
         if (!tumble){
-            glRotatef(-mouseY,1,0,0);
-            glRotatef(-mouseX,0,1,0);
+//            glRotatef(-mouseY,1,0,0);
+//            glRotatef(-mouseX,0,1,0);
         }else{
             
 //            glRotatef(ofGetElapsedTimef()*10,0,0,0);
 //            glRotatef(ofGetElapsedTimef()*11,0,1,0);
 //            glRotatef(ofGetElapsedTimef()*7,0,0,1);
         }
+        
+        stringstream reportStream;
+        reportStream << "VIEWING:  POINTCLOUD" << endl;
+        reportStream << "press \"v\" to toggle viewport selection";
+        ofSetColor(40, 40, 40, 125);
+        ofRect(0, 0, ofGetWidth(), 40);
+        ofSetColor(200, 200, 200);
+        ofDrawBitmapString(reportStream.str(),20,20);	   
+        
+        
         
     } else if(drawPC && viewport){
         ofPushMatrix();
@@ -142,10 +161,29 @@ void testApp::draw() {
             ofRect(viewportOrigin.x, viewportOrigin.y, mouseX-viewportOrigin.x, mouseY-viewportOrigin.y);
             viewportEnd = ofPoint(mouseX, mouseY);
             poi = kinect.getWorldCoordinateFor(mouseX, mouseY);
+            poi = normalizeOfPoint(poi.x, 640, poi.y, 480, poi.z, 6.0);  
+            ofFill();
+
         }
+        
+        stringstream reportStream;
+        reportStream << "VIEWING:  VIEWPORT SELECTION" << endl;
+        reportStream << "Click and drag to trim kinect's visible viewport & PRESS \"v\" to return to pointcloud.";
+        ofSetColor(40, 40, 40, 125);
+        ofRect(0, 0, ofGetWidth(), 40);
+        ofSetColor(200, 200, 200);
+        ofDrawBitmapString(reportStream.str(),20,20);	 
+        
+//        ofSetColor(255, 255, 255);
+//        stringstream reportStream;
+//        reportStream << "Depth at cursor -   x: " << poi.x << " y: " << poi.y << " DEPTH: " << poi.z;
+//        ofSetColor(0, 0, 0);
+//        ofRect(20, 790, ofGetWidth(), 30);
+//        ofDrawBitmapString(reportStream.str(),20,800);	
+//        ofSetColor(255, 255, 255);
     
     }
-    else{
+    if (debug){
 		kinect.drawDepth(10, 10, 400, 300);
 		kinect.draw(420, 10, 400, 300);
         
@@ -154,8 +192,18 @@ void testApp::draw() {
 	}
 	
 
-//	ofSetColor(0, 0, 0);
-	stringstream reportStream;
+//	reportStream << "accel is: " << ofToString(kinect.getMksAccel().x, 2) << " / "
+//    << ofToString(kinect.getMksAccel().y, 2) << " / " 
+//    << ofToString(kinect.getMksAccel().z, 2) << endl
+//    << "press p to switch between images and point cloud, rotate the point cloud with the mouse" << endl
+//    << "using opencv threshold = " << bThreshWithOpenCV <<" (press spacebar)" << endl
+//    << "set near threshold " << nearThreshold << " (press: + -)" << endl
+//    << "set far threshold " << farThreshold << " (press: < >) num blobs found " << contourFinder.nBlobs
+//    << ", fps: " << ofGetFrameRate() << endl
+//    << "press c to close the connection and o to open it again, connection is: " << kinect.isConnected() << endl
+//    << "press UP and DOWN to change the tilt angle: " << angle << " degrees";
+    
+
 }
 
 void rotatePixels(ofPixels &pix, float angle){
@@ -171,6 +219,8 @@ void testApp::drawPointCloud() {
 	int h = 480;
     int width = 0; int height = 0;
     
+    ofPoint closePoint(1.0, 1.0, 1.0);
+
     ofPoint vs(0, 0, 0.0f); 
     ofPoint ve(w, h, 0.0f);
     
@@ -181,23 +231,19 @@ void testApp::drawPointCloud() {
         vs = mapPointTo(viewportOrigin, 640, 480);
         ve = mapPointTo(viewportEnd, 640, 480);
         
-        // change w & h according to viewport
-//        int width = ve.x - vs.x;
-//        int height = ve.y - vs.y;
-        // choose only those pixels of interest based on viewport
-        
     } 
     
 	ofRotateY(pointCloudRotationY);
+//    ofRotateZ(180);
     
     float closeZ = 1.0; // a LOW value ie: 0.1 is closer to the camera.  Higher is further
-    ofPoint closePoint = ofPoint (1.0, 1.0, 1.0);
     
     // clear each frame
     normPoints.clear(); normPoints.empty();
     
-    glScalef(1, 1, 0.5);
-        
+    
+    // get info from depth loop
+    glScalef(1, 1, 0.4);
 	glBegin(GL_POINTS);
 	int step = 3;    
 		for(int x = vs.x; x < ve.x; x += step) {
@@ -205,15 +251,16 @@ void testApp::drawPointCloud() {
 
 			ofPoint raw = kinect.getWorldCoordinateFor(x, y);
             
+//            cout << "raw.x: " << raw.x << " raw.y " << raw.y << " raw.z " << raw.z << "\n";
             // leave points normal for drawing onscreen
             ofPoint drawPnt = raw;
-            
             // normalise points for whatever purpose
             raw = normalizeOfPoint(raw.x, w, raw.y, h, raw.z, 6.0);  
-            
             // find closest point that isn't 0.0, clipped near threshold
+                
             if(findHighest){
                 if (raw.z < closePoint.z && raw.z != 0.0) {
+                    // assign values to send
                     closePoint = raw;
                     // cout << "\n raw.z: " << raw.z << "\n";
                 }
@@ -221,15 +268,15 @@ void testApp::drawPointCloud() {
             
             float lowerLimit = closePoint.z - tolerance / 2;
             float upperLimit = closePoint.z + tolerance / 2 ;
-                
+            
             ofColor colorRgb;
-                colorRgb.r = 125;
-                colorRgb.g = 125;
-                colorRgb.b = 125;
+                colorRgb.r = 0;
+                colorRgb.g = 0;
+                colorRgb.b = 0;
             ofSetColor(colorRgb.r, colorRgb.g, colorRgb.b);
             
-            lowerLimit = 0.0f; // temp
-            upperLimit = 1.0f; // temp
+           // lowerLimit = 0.0f; // temp
+           // upperLimit = 1.0f; // temp
             
             // filter drawn points
             if(raw.z > lowerLimit && raw.z < upperLimit){
@@ -244,7 +291,7 @@ void testApp::drawPointCloud() {
             
             // depthMath
             // crude dist measurements vs. highpoints
-            if(ofDist(1.0, raw.z, 1.0, closePoint.z) < 0.1f){
+            if(ofDist(1.0, raw.z, 1.0, interestThresh) < 0.1f){
                 ofSetColor(0, 255, 255);
                 glVertex3f(drawPnt.x, drawPnt.y, drawPnt.z);   
                 ofSetColor(255, 255,255);
@@ -257,10 +304,30 @@ void testApp::drawPointCloud() {
                 ofSetColor(255, 0, 0);
                 glVertex3f(drawPnt.x, drawPnt.y, drawPnt.z);
             }
+                
+
             
 		}
 	}
 	glEnd();
+ 
+    if  (bOscSend == true) {
+        // send high point as ofPoint
+        ofxOscMessage m;
+        m.setAddress( "/delta/highpoint" );
+        m.addFloatArg( closePoint.x );
+        m.addFloatArg( closePoint.y );
+        m.addFloatArg( closePoint.z );
+        sender.sendMessage( m );
+        cout << "osc sent: x  " << closePoint.x << " y: " << closePoint.y << " z: " << closePoint.z << "\n";
+        //cout << closePoint.z << "\n";
+    }
+    
+    stringstream reportStream;
+    reportStream << "Depth at cursor -   x: " << poi.x << " y: " << poi.y << " DEPTH: " << poi.z;
+    ofSetColor(0, 0, 0);
+    ofRect(20, 790, ofGetWidth(), 30);
+    ofDrawBitmapString(reportStream.str(),20,800);	   
     
 }
 
@@ -272,8 +339,8 @@ ofPoint testApp::mapPointTo(ofPoint _p, float _mx, float _my){
 }
 
 ofPoint testApp::normalizeOfPoint(float x, float w, float y, float h, float z, float d){
-    float _x = ofNormalize(x, 0.0f, w);
-    float _y = ofNormalize(y, 0.0f, h);
+    float _x = ofNormalize(x, -2.0f, 2.0f);
+    float _y = ofNormalize(y, -2.0f, 2.0f);
     float _z = ofNormalize(z, 0.0f, d);
     
     // reminder for close values = lower numbers
@@ -312,8 +379,8 @@ void testApp::keyPressed (int key) {
 		case ' ':
 			bThreshWithOpenCV = !bThreshWithOpenCV;
             break;
-		case'p':
-			drawPC = !drawPC;
+		case'd':
+            debug = !debug;
 			break;
             
 		case '>':
@@ -348,35 +415,57 @@ void testApp::keyPressed (int key) {
 			kinect.close();
 			break;
             
+        case 's':
+            bOscSend = !bOscSend;
+            break;
+            
         case 'v':
             if( viewport == false ) 
             {viewport = true;} else {viewport = false;}
             break;
             
 		case OF_KEY_UP:
-			angle++;
-			if(angle>30) angle=30;
-			kinect.setCameraTiltAngle(angle);
+//			angle++;
+//			if(angle>30) angle=30;
+//			kinect.setCameraTiltAngle(angle);
+            tolerance += 0.1f;
+            if (tolerance > 1.0f) tolerance = 1.0f;
+            cout << tolerance << "\n";
 			break;
             
 		case OF_KEY_DOWN:
-			angle--;
-			if(angle<-30) angle=-30;
-			kinect.setCameraTiltAngle(angle);
+//			angle--;
+//			if(angle<-30) angle=-30;
+//			kinect.setCameraTiltAngle(angle);
+            tolerance -=0.1f;
+            if (tolerance < 0.0f) tolerance = 0.0f;
+            cout << tolerance << "\n";
 			break;
+        
+        case OF_KEY_LEFT:
+            interestThresh -=0.1f;
+            if(interestThresh < 0.0f) interestThresh = 0.0f;
+            cout << "interest point: " << interestThresh << "\n";            
+            break;
+            
+        case OF_KEY_RIGHT:
+            interestThresh += 0.1f;
+            if(interestThresh > 1.0f) interestThresh = 1.0f;
+            cout << "interest point: " << interestThresh << "\n";
+            break;
+            
 	}
 }
 
 //--------------------------------------------------------------
 void testApp::mouseMoved(int x, int y) {
     int _x = ofMap(x, 0, ofGetWidth(), 490, 540);
-    pointCloudRotationY = _x;
+//    pointCloudRotationY = _x;
 }
 
 //--------------------------------------------------------------
 void testApp::mouseDragged(int x, int y, int button)
 {
-    tolerance = ofNormalize(y, 0, ofGetHeight());
 //    cout << tolerance;
     if(viewport){
         if(viewportOrigin.x != 0.0){
@@ -393,7 +482,7 @@ void testApp::mousePressed(int x, int y, int button)
     if(viewport){
         drawviewport = true;
         viewportOrigin = ofPoint(x, y, 0.0);
-        cout << viewportOrigin.x << " : " << viewportOrigin.y << "viewport origin \n";
+//        cout << viewportOrigin.x << " : " << viewportOrigin.y << "viewport origin \n";
     }
 }
 

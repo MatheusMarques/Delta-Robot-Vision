@@ -3,6 +3,8 @@
 #include "ofMain.h"
 #include "ofxOpenCv.h"
 #include "ofxKinect.h"
+#include "ofxOsc.h"
+#include "ofxXmlSettings.h"
 
 class testApp : public ofBaseApp {
 public:
@@ -48,5 +50,10 @@ public:
     ofPoint normalizeOfPoint(float x, float w, float y, float h, float z, float d);
     ofPoint mapPointTo(ofPoint p, float _mx, float _my);
     ofColor HSVToRGB(float H, float S, float V, ofColor &in);
-  
+    
+    ofxOscSender sender;
+
+    bool bDumpXML;
+    ofxXmlSettings xml;
+    
 };
